@@ -2,9 +2,11 @@ import UIKit
 
 /// A base class for UIViews that automatically tracks their own visibility on screen.
 class TrackableUIView: UIView {
-    
+    var uid: UUID {
+        UUID()
+    }
     private var visibilityTracker: VisibilityTracker?
-    
+
     override func didMoveToWindow() {
         super.didMoveToWindow()
         
@@ -36,5 +38,6 @@ class TrackableUIView: UIView {
 }
 
 protocol VisibilityUpdateReceiver {
+    var uid: UUID { get }
     func visibilityDidChange(to percentage: CGFloat)
 }

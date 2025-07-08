@@ -22,19 +22,12 @@ final class MainTabBarController: UITabBarController {
     }
 
     private func setupViewControllers() {
-        let homeVC = createNavigationController(
-            rootViewController: HomeViewController(),
-            title: "Home",
-            image: UIImage(systemName: "house"),
-            selectedImage: UIImage(systemName: "house.fill"),
-            tag: 0
-        )
 
-        let searchVC = createNavigationController(
-            rootViewController: AloneViewController(),
-            title: "Search",
-            image: UIImage(systemName: "magnifyingglass"),
-            selectedImage: UIImage(systemName: "magnifyingglass"),
+        let carouselVC = createNavigationController(
+            rootViewController: CarouselViewController(),
+            title: "Carousel",
+            image: UIImage(systemName: "rectangle.on.rectangle"),
+            selectedImage: UIImage(systemName: "rectangle.on.rectangle.fill"),
             tag: 1
         )
 
@@ -54,7 +47,15 @@ final class MainTabBarController: UITabBarController {
             tag: 3
         )
 
-        viewControllers = [homeVC, searchVC, favoritesVC, profileVC]
+        let searchVC = createNavigationController(
+            rootViewController: SearchViewController(),
+            title: "Search",
+            image: UIImage(systemName: "magnifyingglass"),
+            selectedImage: UIImage(systemName: "magnifyingglass.fill"),
+            tag: 3
+        )
+
+        viewControllers = [carouselVC, favoritesVC, profileVC, searchVC]
     }
 
     private func createNavigationController(

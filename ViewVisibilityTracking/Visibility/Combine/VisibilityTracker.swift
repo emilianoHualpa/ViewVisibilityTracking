@@ -48,11 +48,9 @@ final class VisibilityTracker {
             return
         }
 
-        // --- THE CORRECTED PATTERN ---
-
         // 1. Create a "ticker" publisher that fires 2 times per second
         //    and runs in .common mode so it is NOT paused during scrolling.
-        let ticker = Timer.publish(every: 1.0 / 2.0, on: .main, in: .common).autoconnect()
+        let ticker = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
 
         // 2. Create publishers for each scroll view's contentOffset.
         let offsetPublishers = parentScrollViews.map {

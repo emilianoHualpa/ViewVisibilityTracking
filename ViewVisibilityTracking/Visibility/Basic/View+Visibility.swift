@@ -2,16 +2,16 @@ import UIKit
 
 extension UIView {
 
-    /// Finds all subviews conforming to the CoverableView protocol within a given view hierarchy.
-    private func findAllCoverableViews(in view: UIView) -> [CoverableView] {
-        var coverableViews: [CoverableView] = []
+    /// Finds all subviews conforming to the ViewObfuscator protocol within a given view hierarchy.
+    private func findAllObfuscatorViews(in view: UIView) -> [ViewObfuscator] {
+        var coverableViews: [ViewObfuscator] = []
 
         for subview in view.subviews {
-            if let coverableView = subview as? CoverableView {
+            if let coverableView = subview as? ViewObfuscator {
                 coverableViews.append(coverableView)
             }
             // Recurse into subviews to find coverable views at any depth
-            coverableViews.append(contentsOf: findAllCoverableViews(in: subview))
+            coverableViews.append(contentsOf: findAllObfuscatorViews(in: subview))
         }
 
         return coverableViews
@@ -32,22 +32,18 @@ extension UIView {
         }
 
         // 2. Find all views that can obscure our view.
-        let coverableViews = findAllCoverableViews(in: rootView)
+        let obfuscatorViews = findAllObfuscatorViews(in: rootView)
 
         // 3. Subtract the area of each coverable view.
-        for coverableView in coverableViews {
+        for obfuscatorView in obfuscatorViews {
             // Ensure the coverable view is actually visible and on screen
-            guard !coverableView.isHidden, coverableView.alpha > 0 else { continue }
+            guard !obfuscatorView.isHidden, obfuscatorView.alpha > 0 else { continue }
 
             // Convert the coverable view's frame to the window's coordinate space to compare.
-            let coverFrameInWindow = coverableView.convert(coverableView.bounds, to: nil)
+            let coverFrameInWindow = obfuscatorView.convert(obfuscatorView.bounds, to: nil)
 
             // Calculate the intersection between our visible part and the covering view.
             let obscuredRect = visiblePart.intersection(coverFrameInWindow)
-
-            // This is a simplified subtraction. For a perfect calculation, you'd need to
-            // handle cases where the remaining visible area is split into multiple rectangles.
-            // For this use case, subtracting the area is a very good approximation.
             let obscuredArea = obscuredRect.width * obscuredRect.height
             let visibleArea = visiblePart.width * visiblePart.height
             let newVisibleArea = max(0, visibleArea - obscuredArea)
@@ -75,5 +71,62 @@ extension UIView {
             responder = responder?.next
         }
         return nil
+    }
+}
+
+extension UIView {
+
+    /// Calculates visibility by geometrically subtracting the frames of known NFOs from the tracker.
+    ///
+    /// - Parameters:
+    ///   - visibleRectInWindow: The frame of the visible area on screen (e.g., the window's safe area).
+    ///   - place: The NFO context to check for obstructing views.
+    /// - Returns: A percentage (0.0 to 1.0) of how much of the view is visible.
+    func visibilityPercentage(
+        within visibleRectInWindow: CGRect,
+        forPlace place: NFOPlace
+    ) async -> CGFloat {
+
+        guard !isHidden, alpha > 0, let _ = self.window, !self.bounds.isEmpty else {
+            return 0
+        }
+
+        let viewFrameInWindow = self.convert(self.bounds, to: nil)
+        var visiblePart = viewFrameInWindow.intersection(visibleRectInWindow)
+
+        if visiblePart.isNull {
+            return 0
+        }
+
+        let obfuscators = NFOTracker.shared.obstructions(in: place)
+
+        for obfuscator in obfuscators {
+
+            guard obfuscator.isVisible else {
+                continue
+            }
+
+            let coverFrameInWindow = obfuscator.frame
+            let obscuredRect = visiblePart.intersection(coverFrameInWindow)
+            if obscuredRect.isNull {
+                continue
+            }
+
+            let obscuredArea = obscuredRect.width * obscuredRect.height
+            let visibleArea = visiblePart.width * visiblePart.height
+
+            guard visibleArea > 0 else {
+                continue
+            }
+
+            let newVisibleArea = max(0, visibleArea - obscuredArea)
+            let newHeight = visiblePart.height * (newVisibleArea / visibleArea)
+            visiblePart.size.height = newHeight
+        }
+
+        let finalVisibleArea = visiblePart.width * visiblePart.height
+        let totalViewArea = self.bounds.width * self.bounds.height
+
+        return totalViewArea > 0 ? finalVisibleArea / totalViewArea : 0
     }
 }
