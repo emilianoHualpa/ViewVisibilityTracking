@@ -99,7 +99,15 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
     // MARK: - Actions & Visibility Calculation
 
     @objc private func floatingButtonTapped() {
-        testBlock.isHidden.toggle()
+        testBlock.isHidden = Bool.random()
+        // 1. Update the constant of the EXISTING constraint
+        testBoxWidthConstraint.constant = Bool.random() ? 150 : 50
+
+        // 2. Animate the layout change (optional, but makes it smooth)
+        UIView.animate(withDuration: 0.3) {
+            // Request the superview to layout its subviews, applying the constraint change
+            self.view.layoutIfNeeded()
+        }
     }
 
     /// This single method is the source of truth for visibility updates.
