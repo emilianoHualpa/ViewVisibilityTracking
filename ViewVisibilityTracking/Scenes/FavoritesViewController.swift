@@ -99,6 +99,12 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
     // MARK: - Actions & Visibility Calculation
 
     @objc private func floatingButtonTapped() {
+        if Bool.random() {
+            let profVC = ProfileViewController()
+            profVC.modalPresentationStyle = .pageSheet
+            self.present(profVC, animated: true)
+        }
+
         testBlock.isHidden = Bool.random()
         // 1. Update the constant of the EXISTING constraint
         testBoxWidthConstraint.constant = Bool.random() ? 150 : 50
@@ -127,6 +133,18 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
     }
 }
 
+// Make your view controller conform to the delegate protocol
+extension FavoritesViewController: UIAdaptivePresentationControllerDelegate {
+
+    // This delegate method is GUARANTEED to be called after a sheet is dismissed.
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        print("✅ Presentation controller was dismissed. Telling carousel to update.")
+
+        // Now you can reliably command your component to update.
+        updateComponentVisibility()
+    }
+}
+
 // The host conforms to UIScrollViewDelegate to handle all scroll events.
 extension FavoritesViewController: UIScrollViewDelegate {
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
@@ -152,6 +170,11 @@ final class CardCell: UICollectionViewCell {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     func updateVisibility(percentage: CGFloat, index: Int) {
+        if self.contentView.isViewControllerPresentedOnTop {
+            contentView.backgroundColor = .systemRed
+            label.text = String(format: "Card \(index + 1)\nVisible: %.1f%%", 0)
+            return
+        }
         contentView.backgroundColor = percentage > 0.5 ? .systemGreen : .systemRed
         label.text = String(format: "Card \(index + 1)\nVisible: %.1f%%", percentage * 100)
     }
