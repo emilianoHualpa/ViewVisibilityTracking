@@ -1,16 +1,12 @@
 import UIKit
 
-//================================================================================
-// MARK: - Reusable PollingStateObserver
-//================================================================================
-
 /// An internal, reusable helper class that encapsulates the logic for polling a view's state.
 ///
 /// This observer uses a `CADisplayLink` to efficiently check for changes in a view's
 /// state, such as whether a view controller presented on top of it has been dismissed.
 /// It's designed to be owned by a `UIView` and automatically start/stop based on the
 /// view's presence in a window.
-public final class PollingStateObserver {
+public final class ViewPresentedOnTopStateObserver {
 
     // A weak reference to the view being observed to avoid retain cycles.
     private weak var observedView: UIView?

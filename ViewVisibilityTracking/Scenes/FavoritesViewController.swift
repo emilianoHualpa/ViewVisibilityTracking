@@ -112,14 +112,9 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
     func updateComponentVisibility() {
         guard view.window != nil else { return }
 
-        // 1. Get the visible area of the screen.
         let visibleRect = mainScrollView.convert(mainScrollView.bounds, to: nil)
 
-        // 2. Get all potential obstructions from the tracker.
-        let obstructions = NFOTracker.shared.obstructions(in: .favorites)
-
-        // 3. Pass all necessary information to the component.
-        carouselComponent.updateCardVisibilities(within: visibleRect, obstructions: obstructions)
+        carouselComponent.updateCardVisibilities(within: visibleRect)
     }
 
     private func createDummyView(text: String, color: UIColor) -> UIView {

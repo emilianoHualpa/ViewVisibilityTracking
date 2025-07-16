@@ -26,10 +26,39 @@ public final class HorizontalCarouselComponent: UIView {
     public override init(frame: CGRect) {
         super.init(frame: frame)
         setupComponentView()
+        setupDismissalObserver()
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    // The carousel now holds a reference to the observer.
+    private var dismissalObserver: ViewPresentedOnTopStateObserver?
+
+    // We still need to store the last known rect to pass to the update method.
+    private var lastKnownVisibleRect: CGRect?
+
+    // We override didMoveToWindow to start and stop our polling timer.
+    public override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if self.window != nil {
+            dismissalObserver?.start()
+        } else {
+            dismissalObserver?.stop()
+        }
+    }
+
+    /// Sets up the dismissal observer, providing the logic to run when a dismissal is detected.
+    private func setupDismissalObserver() {
+        dismissalObserver = ViewPresentedOnTopStateObserver(observing: self) { [weak self] in
+            // This closure is the callback. When the observer detects a dismissal,
+            // it calls this code.
+            guard let self = self, let rect = self.lastKnownVisibleRect else { return }
+
+            // We force a UI update using the last known visible rectangle.
+            self.updateCardVisibilities(within: rect)
+        }
     }
 
     private func setupComponentView() {
@@ -45,22 +74,25 @@ public final class HorizontalCarouselComponent: UIView {
 
     /// **PUBLIC API**: The host view controller calls this method to trigger a visibility update.
     @MainActor
-    public func updateCardVisibilities(within visibleRectInWindow: CGRect, obstructions: [NFOInfo]) {
+    public func updateCardVisibilities(within visibleRectInWindow: CGRect) {
+        // Store the rect provided by the host so our internal trigger can use it.
+        self.lastKnownVisibleRect = visibleRectInWindow
+
         for cell in collectionView.visibleCells {
             guard let cardCell = cell as? CardCell,
                   let indexPath = collectionView.indexPath(for: cardCell) else {
                 continue
             }
-
-            // Use the new, reusable calculator to get the visibility percentage.
-            let visibility = VisibilityCalculator.percentageVisible(
-                of: cardCell,
-                within: visibleRectInWindow,
-                considering: obstructions
-            )
-
-            // Update the cell's UI.
-            cardCell.updateVisibility(percentage: visibility, index: indexPath.item)
+            Task {
+                // Assuming NFOPlace and visibilityPercentage are defined elsewhere
+                let visibility = await cardCell.visibilityPercentage(
+                    within: visibleRectInWindow,
+                    forPlace: .favorites
+                )
+                await MainActor.run {
+                    cardCell.updateVisibility(percentage: visibility, index: indexPath.item)
+                }
+            }
         }
     }
 }
