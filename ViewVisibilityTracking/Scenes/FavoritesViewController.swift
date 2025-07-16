@@ -32,7 +32,9 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         // Trigger an update after the initial layout pass.
-        updateComponentVisibility()
+        Task {
+            updateComponentVisibility()
+        }
     }
 
     // MARK: - Setup
@@ -104,25 +106,20 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
             profVC.modalPresentationStyle = .pageSheet
             self.present(profVC, animated: true)
         }
-
-        testBlock.isHidden = Bool.random()
-        // 1. Update the constant of the EXISTING constraint
-        testBoxWidthConstraint.constant = Bool.random() ? 150 : 50
-
-        // 2. Animate the layout change (optional, but makes it smooth)
-        UIView.animate(withDuration: 0.3) {
-            // Request the superview to layout its subviews, applying the constraint change
-            self.view.layoutIfNeeded()
-        }
     }
 
-    /// This single method is the source of truth for visibility updates.
-    private func updateComponentVisibility() {
+    @MainActor
+    func updateComponentVisibility() {
         guard view.window != nil else { return }
-        // The host correctly calculates the visible rect from its own coordinate space.
-        let visibleRect = view.convert(view.safeAreaLayoutGuide.layoutFrame, to: nil)
-        // It then passes this information to the component.
-        carouselComponent.updateCardVisibilities(within: visibleRect)
+
+        // 1. Get the visible area of the screen.
+        let visibleRect = mainScrollView.convert(mainScrollView.bounds, to: nil)
+
+        // 2. Get all potential obstructions from the tracker.
+        let obstructions = NFOTracker.shared.obstructions(in: .favorites)
+
+        // 3. Pass all necessary information to the component.
+        carouselComponent.updateCardVisibilities(within: visibleRect, obstructions: obstructions)
     }
 
     private func createDummyView(text: String, color: UIColor) -> UIView {
@@ -176,6 +173,6 @@ final class CardCell: UICollectionViewCell {
             return
         }
         contentView.backgroundColor = percentage > 0.5 ? .systemGreen : .systemRed
-        label.text = String(format: "Card \(index + 1)\nVisible: %.1f%%", percentage * 100)
+        label.text = String(format: "Card \(index + 1)\nVisible: %.1f%%", percentage)
     }
 }
