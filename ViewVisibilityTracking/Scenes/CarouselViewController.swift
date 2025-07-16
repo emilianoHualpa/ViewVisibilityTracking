@@ -149,11 +149,12 @@ final class CarouselViewController: UIViewController {
             }
 
             Task {
-                let visibility = await cardCell.visibilityPercentage(
-                    within: visibleRectInWindow,
-                    forPlace: .details
-                )
-                
+                let visibility = VisibilityCalculator
+                    .percentageVisible(
+                        of: cell,
+                        within: visibleRectInWindow,
+                        considering: NFOTracker.shared.obstructions(in: .details)
+                    )
                 await MainActor.run {
                     cardCell.updateVisibility(percentage: visibility, index: indexPath.item)
                 }

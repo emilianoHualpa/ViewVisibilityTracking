@@ -84,11 +84,12 @@ public final class HorizontalCarouselComponent: UIView {
                 continue
             }
             Task {
-                // Assuming NFOPlace and visibilityPercentage are defined elsewhere
-                let visibility = await cardCell.visibilityPercentage(
-                    within: visibleRectInWindow,
-                    forPlace: .favorites
-                )
+                let visibility = VisibilityCalculator
+                    .percentageVisible(
+                        of: cell,
+                        within: visibleRectInWindow,
+                        considering: NFOTracker.shared.obstructions(in: .favorites)
+                    )
                 await MainActor.run {
                     cardCell.updateVisibility(percentage: visibility, index: indexPath.item)
                 }
