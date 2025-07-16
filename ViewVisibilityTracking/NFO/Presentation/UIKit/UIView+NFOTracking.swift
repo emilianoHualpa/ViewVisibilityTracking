@@ -1,20 +1,23 @@
 import UIKit
 import Combine
 
-// This file contains the core UIKit tracking logic.
+// This file contains the core UIKit tracking logic, updated for Swift 6 concurrency.
 
 // A private key for associating the helper object with a UIView.
-private var nfoHelperKey: UInt8 = 0
+@MainActor private var nfoHelperKey: UInt8 = 0
 
 /// A helper class that observes a UIView's lifecycle and frame changes to report to the NFOTracker.
 /// This object is automatically associated with the UIView being tracked.
-private final class NFOUIKitLifecycleHelper: NSObject {
+@MainActor
+private final class NFOUIKitLifecycleHelper {
     private let viewId = UUID()
     private weak var trackedView: UIView?
     private let place: NFOPlace
     private var lastKnownFrame: CGRect?
     private var lastKnownVisibility: Bool?
-    private var updateWorkItem: DispatchWorkItem?
+
+    // This Task handles the debounced update, replacing DispatchWorkItem.
+    private var updateTask: Task<Void, Never>?
 
     // A set to store all Combine subscriptions, ensuring they are cancelled on deinit.
     private var cancellables = Set<AnyCancellable>()
@@ -22,7 +25,7 @@ private final class NFOUIKitLifecycleHelper: NSObject {
     init(view: UIView, place: NFOPlace) {
         self.trackedView = view
         self.place = place
-        super.init()
+        // No need to call super.init() when not subclassing a specific NSObject method.
 
         // Start observing when the helper is initialized.
         startObserving()
@@ -32,32 +35,14 @@ private final class NFOUIKitLifecycleHelper: NSObject {
     private func startObserving() {
         guard let view = trackedView else { return }
 
-        // We observe multiple properties that can affect layout or visibility.
-        // Each publisher is mapped to a Void output and then type-erased to AnyPublisher<Void, Never>
-        // so they can be merged together.
-
-        let boundsPublisher = view.layer.publisher(for: \.bounds)
-            .map{ _ in () }
-            .eraseToAnyPublisher()
-
-        let centerPublisher = view.publisher(for: \.center)
-            .map { _ in () }
-            .eraseToAnyPublisher()
-
-        let alphaPublisher = view.publisher(for: \.alpha)
-            .map { _ in () }
-            .eraseToAnyPublisher()
-
-        let isHiddenPublisher = view.publisher(for: \.isHidden)
-            .map { _ in () }
-            .eraseToAnyPublisher()
-
-        let windowPublisher = view.publisher(for: \.window)
-            .map { _ in () }
-            .eraseToAnyPublisher()
+        // Each publisher is mapped to a Void output and then type-erased.
+        let boundsPublisher = view.layer.publisher(for: \.bounds).map { _ in () }.eraseToAnyPublisher()
+        let centerPublisher = view.publisher(for: \.center).map { _ in () }.eraseToAnyPublisher()
+        let alphaPublisher = view.publisher(for: \.alpha).map { _ in () }.eraseToAnyPublisher()
+        let isHiddenPublisher = view.publisher(for: \.isHidden).map { _ in () }.eraseToAnyPublisher()
+        let windowPublisher = view.publisher(for: \.window).map { _ in () }.eraseToAnyPublisher()
 
         // Merge all publishers into a single stream.
-        // Any time one of these properties changes, the merged publisher will emit a value.
         Publishers.MergeMany(
             boundsPublisher,
             centerPublisher,
@@ -65,8 +50,9 @@ private final class NFOUIKitLifecycleHelper: NSObject {
             isHiddenPublisher,
             windowPublisher
         )
-        .debounce(for: .milliseconds(16), scheduler: DispatchQueue.main) // Debounce to avoid excessive updates during animations.
+        .debounce(for: .milliseconds(16), scheduler: DispatchQueue.main) // Debounce remains the same.
         .sink { [weak self] in
+            // Because this class is @MainActor isolated, this closure is safe.
             self?.scheduleUpdate()
         }
         .store(in: &cancellables)
@@ -75,17 +61,21 @@ private final class NFOUIKitLifecycleHelper: NSObject {
         scheduleUpdate()
     }
 
-    /// Schedules a debounced update to check the view's frame and visibility.
+    /// Schedules a debounced update to check the view's frame and visibility using modern concurrency.
     func scheduleUpdate() {
         // Cancel any pending update to debounce frequent calls.
-        updateWorkItem?.cancel()
+        updateTask?.cancel()
 
-        let workItem = DispatchWorkItem { [weak self] in
-            self?.updateFrameAndVisibility()
+        updateTask = Task {
+            do {
+                // A small delay allows the runloop to complete an animation/layout pass.
+                try await Task.sleep(nanoseconds: 16_000_000)
+                self.updateFrameAndVisibility()
+            } catch {
+                // This will be a CancellationError if the task was cancelled.
+                // No action needed, the update was successfully debounced.
+            }
         }
-        self.updateWorkItem = workItem
-        // Execute on the next runloop turn to ensure layout is complete.
-        DispatchQueue.main.async(execute: workItem)
     }
 
     /// Calculates the view's frame in screen coordinates and its visibility,
@@ -128,14 +118,16 @@ private final class NFOUIKitLifecycleHelper: NSObject {
 
     /// Stops all observations and tracking activities.
     func stopTracking() {
-        updateWorkItem?.cancel()
-        cancellables.removeAll() // This cancels all active Combine subscriptions.
-         NFOTracker.shared.unregister(id: viewId)
+        updateTask?.cancel()
+        cancellables.removeAll()
+        NFOTracker.shared.unregister(id: viewId)
     }
 
     deinit {
-        stopTracking()
-        print("✅ NFOUIKitLifecycleHelper for view \(viewId) deinitialized.")
+        DispatchQueue.main.async { [weak self] in
+            self?.stopTracking()
+            print("✅ NFOUIKitLifecycleHelper deinitialized.")
+        }
     }
 }
 
@@ -159,9 +151,11 @@ public extension UIView {
     /// Explicitly stops tracking this view as an NFO.
     func stopTrackingNFO() {
         if let helper = objc_getAssociatedObject(self, &nfoHelperKey) as? NFOUIKitLifecycleHelper {
-            helper.stopTracking()
-            // Remove the associated object to allow for re-tracking later if needed.
-            objc_setAssociatedObject(self, &nfoHelperKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            // Since the helper is a MainActor, we must call its methods from an async context.
+            Task { @MainActor in
+                helper.stopTracking()
+                objc_setAssociatedObject(self, &nfoHelperKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            }
         }
     }
 }

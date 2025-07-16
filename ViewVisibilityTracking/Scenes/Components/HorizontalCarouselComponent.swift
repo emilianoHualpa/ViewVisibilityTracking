@@ -175,7 +175,9 @@ public final class HorizontalCarouselComponent: UIView {
     }
 
     deinit {
-        stopStatePollTimer()
+        DispatchQueue.main.async { [weak self] in
+            self?.stopStatePollTimer()
+        }
     }
 
     private func setupComponentView() {

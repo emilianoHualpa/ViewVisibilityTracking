@@ -4,6 +4,7 @@ import Combine
 /// A thread-safe singleton responsible for tracking all "NonFriendlyObstructors" (NFOs).
 ///
 /// This pattern integrates seamlessly with Combine and avoids the complex actor-bridging issues.
+@MainActor
 public final class NFOTracker: ObservableObject {
 
     /// The shared singleton instance for global access.

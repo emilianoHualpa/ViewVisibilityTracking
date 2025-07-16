@@ -1,15 +1,14 @@
 import UIKit
 import Combine
 
-import UIKit
-import Combine
-
+@MainActor
 final class VisibilityTracker {
 
     private weak var viewToTrack: UIView?
     private weak var boundaryView: UIView?
 
-    var onVisibilityChange: ((CGFloat) -> Void)?
+    // 2. Mark the closure as @MainActor to enforce its execution context.
+    var onVisibilityChange: (@MainActor (CGFloat) -> Void)?
     private var cancellables: Set<AnyCancellable> = []
 
     // Updated initializer
@@ -30,6 +29,7 @@ final class VisibilityTracker {
         let visibleRectInWindow = boundaryView.convert(boundaryView.safeAreaLayoutGuide.layoutFrame, to: nil)
 
         // The root view for the protocol search should still be the window to find all overlays.
+        // This call is now guaranteed to be on the main thread.
         let percentage = view.protocolBasedVisibilityPercentage(within: visibleRectInWindow, rootView: window)
 
         onVisibilityChange?(percentage)
@@ -94,6 +94,8 @@ final class VisibilityTracker {
     }
 
     deinit {
-        stop()
+        DispatchQueue.main.async { [weak self] in
+            self?.stop()
+        }
     }
 }
