@@ -1,14 +1,15 @@
 import UIKit
 import Combine
 
-@MainActor private var nfoHelperKey: UInt8 = 0
+@MainActor
+private var nfoHelperKey: UInt8 = 0
 
 @MainActor
 final class NFOUIKitLifecycleHelper {
     internal let viewId = UUID()
     private weak var trackedView: UIView?
     private let place: NFOPlace
-    private let tracker: NFOTracking // Injected dependency
+    private let tracker: NFOTracking
     private var lastKnownFrame: CGRect?
     private var lastKnownVisibility: Bool?
     private var updateTask: Task<Void, Never>?
@@ -17,7 +18,7 @@ final class NFOUIKitLifecycleHelper {
     init(view: UIView, place: NFOPlace, tracker: NFOTracking) {
         self.trackedView = view
         self.place = place
-        self.tracker = tracker // Store the injected tracker
+        self.tracker = tracker
         startObserving()
     }
 
@@ -118,16 +119,14 @@ final class NFOUIKitLifecycleHelper {
 }
 
 public extension UIView {
-    @MainActor internal var nfoHelper: NFOUIKitLifecycleHelper? {
+    internal var nfoHelper: NFOUIKitLifecycleHelper? {
         objc_getAssociatedObject(self, &nfoHelperKey) as? NFOUIKitLifecycleHelper
     }
 
-    @MainActor
     func trackAsNFO(place: NFOPlace) {
         self.trackAsNFO(place: place, tracker: NFOTracker.shared)
     }
 
-    @MainActor
     func stopTrackingNFO() {
         if let helper = nfoHelper {
             helper.stopTracking()
@@ -137,7 +136,6 @@ public extension UIView {
 }
 
 extension UIView {
-    @MainActor
     func trackAsNFO(place: NFOPlace, tracker: NFOTracking) {
         if objc_getAssociatedObject(self, &nfoHelperKey) != nil {
             return
