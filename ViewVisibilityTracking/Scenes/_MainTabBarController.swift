@@ -23,14 +23,6 @@ final class MainTabBarController: UITabBarController {
 
     private func setupViewControllers() {
 
-        let carouselVC = createNavigationController(
-            rootViewController: CarouselViewController(),
-            title: "Carousel",
-            image: UIImage(systemName: "rectangle.on.rectangle"),
-            selectedImage: UIImage(systemName: "rectangle.on.rectangle.fill"),
-            tag: 1
-        )
-
         let favoritesVC = createNavigationController(
             rootViewController: FavoritesViewController(),
             title: "Favorites",
@@ -55,7 +47,7 @@ final class MainTabBarController: UITabBarController {
             tag: 3
         )
 
-        viewControllers = [carouselVC, favoritesVC, profileVC, searchVC]
+        viewControllers = [favoritesVC, profileVC, searchVC]
     }
 
     private func createNavigationController(

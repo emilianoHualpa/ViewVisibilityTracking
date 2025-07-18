@@ -11,7 +11,7 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
     // MARK: - Properties
     private let mainScrollView = UIScrollView()
     private let stackView = UIStackView()
-    private let carouselComponent = HorizontalCarouselComponent()
+    private let carouselComponent = HorizontalCarouselComponent(place: .favorites)
     private let testBlock = TestFloatingBlock()
     private let floatingButton = UIButton(configuration: .filled())
     private var testBoxWidthConstraint: NSLayoutConstraint!
@@ -149,25 +149,63 @@ extension FavoritesViewController: UIScrollViewDelegate {
 // MARK: - Shared Components (For Demo)
 //================================================================================
 
-final class CardCell: UICollectionViewCell {
-    static let reuseIdentifier = "CardCell"
-    private let label = UILabel()
+@MainActor
+public class CardCell: UICollectionViewCell {
+    public static let reuseIdentifier = "CardCell"
+
+    /// The possible visibility states for a card.
+    public enum VisibilityState {
+        case belowThreshold
+        case aboveThreshold
+        case impressionFired
+    }
+
+    public var itemID: String?
+
+    private let visibilityLabel: UILabel = {
+        let label = UILabel()
+        label.textColor = .white
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        label.font = .systemFont(ofSize: 18, weight: .bold)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+
     override init(frame: CGRect) {
         super.init(frame: frame)
-        contentView.layer.cornerRadius = 12; contentView.clipsToBounds = true
-        label.textColor = .white; label.font = .systemFont(ofSize: 16, weight: .medium)
-        label.textAlignment = .center; label.numberOfLines = 2
-        contentView.addSubview(label); label.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([label.centerXAnchor.constraint(equalTo: contentView.centerXAnchor), label.centerYAnchor.constraint(equalTo: contentView.centerYAnchor)])
+        setupViews()
     }
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-    func updateVisibility(percentage: CGFloat, index: Int) {
-        if self.contentView.isViewControllerPresentedOnTop {
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setupViews() {
+        contentView.addSubview(visibilityLabel)
+        contentView.layer.cornerRadius = 12
+        NSLayoutConstraint.activate([
+            visibilityLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            visibilityLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor)
+        ])
+    }
+
+    /// Updates the cell's UI based on its current visibility state and percentage.
+    public func updateUI(for state: VisibilityState, percentage: CGFloat?, index: Int) {
+        switch state {
+        case .belowThreshold:
             contentView.backgroundColor = .systemRed
-            label.text = String(format: "Card \(index + 1)\nVisible: %.1f%%", 0)
-            return
+            let percentageFormatted = String(format: "%.1f", (percentage ?? 0) * 100)
+            visibilityLabel.text = "Card \(index + 1):\n\(percentageFormatted)% visible"
+
+        case .aboveThreshold:
+            contentView.backgroundColor = .systemGreen
+            let percentageFormatted = String(format: "%.1f", (percentage ?? 0) * 100)
+            visibilityLabel.text = "Card \(index + 1):\n\(percentageFormatted)% visible"
+
+        case .impressionFired:
+            contentView.backgroundColor = .systemBlue
+            visibilityLabel.text = "Impression Fired"
         }
-        contentView.backgroundColor = percentage > 0.5 ? .systemGreen : .systemRed
-        label.text = String(format: "Card \(index + 1)\nVisible: %.1f%%", percentage)
     }
 }
