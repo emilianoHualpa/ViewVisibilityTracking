@@ -11,7 +11,7 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
     // MARK: - Properties
     private let mainScrollView = UIScrollView()
     private let stackView = UIStackView()
-    private let carouselComponent = HorizontalCarouselComponent(place: .favorites)
+    private lazy var carouselComponent = HorizontalCarouselComponent(place: .favorites, impressionTracker: self.impressionTracker)
     private let testBlock = TestFloatingBlock()
     private let floatingButton = UIButton(configuration: .filled())
     private var testBoxWidthConstraint: NSLayoutConstraint!
@@ -28,6 +28,17 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
         setupLayout()
         setupVisibilityMonitor()
     }
+
+    lazy var impressionTracker: ImpressionTracking = MRCImpressionTracker(
+         onViewImpressionFired: { [weak self] itemID in
+             print("🚀 Firing API Call for VIEWABLE impression on item \(itemID)")
+             // After an impression fires, re-run the visibility check.
+             self?.updateComponentVisibility()
+         },
+         onRenderImpressionFired: { itemID in
+             print("🎨 Firing API Call for RENDER impression on item \(itemID)")
+         }
+     )
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
@@ -142,70 +153,5 @@ extension FavoritesViewController: UIScrollViewDelegate {
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         // This is called for both vertical and horizontal scrolls.
         updateComponentVisibility()
-    }
-}
-
-//================================================================================
-// MARK: - Shared Components (For Demo)
-//================================================================================
-
-@MainActor
-public class CardCell: UICollectionViewCell {
-    public static let reuseIdentifier = "CardCell"
-
-    /// The possible visibility states for a card.
-    public enum VisibilityState {
-        case belowThreshold
-        case aboveThreshold
-        case impressionFired
-    }
-
-    public var itemID: String?
-
-    private let visibilityLabel: UILabel = {
-        let label = UILabel()
-        label.textColor = .white
-        label.textAlignment = .center
-        label.numberOfLines = 0
-        label.font = .systemFont(ofSize: 18, weight: .bold)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupViews()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupViews() {
-        contentView.addSubview(visibilityLabel)
-        contentView.layer.cornerRadius = 12
-        NSLayoutConstraint.activate([
-            visibilityLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            visibilityLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor)
-        ])
-    }
-
-    /// Updates the cell's UI based on its current visibility state and percentage.
-    public func updateUI(for state: VisibilityState, percentage: CGFloat?, index: Int) {
-        switch state {
-        case .belowThreshold:
-            contentView.backgroundColor = .systemRed
-            let percentageFormatted = String(format: "%.1f", (percentage ?? 0) * 100)
-            visibilityLabel.text = "Card \(index + 1):\n\(percentageFormatted)% visible"
-
-        case .aboveThreshold:
-            contentView.backgroundColor = .systemGreen
-            let percentageFormatted = String(format: "%.1f", (percentage ?? 0) * 100)
-            visibilityLabel.text = "Card \(index + 1):\n\(percentageFormatted)% visible"
-
-        case .impressionFired:
-            contentView.backgroundColor = .systemBlue
-            visibilityLabel.text = "Impression Fired"
-        }
     }
 }

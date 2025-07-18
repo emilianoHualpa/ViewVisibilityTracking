@@ -3,27 +3,8 @@ import UIKit
 public final class HorizontalCarouselComponent: UIView {
     private let place: NFOPlace
 
-    /// The component now owns a single, centralized impression tracker.
-    /// It is declared as a `lazy var` to allow `self` to be captured in its initialization closure.
-    private lazy var impressionTracker: MRCImpressionTracker = {
-        return MRCImpressionTracker(
-            onViewImpressionFired: { [weak self] itemID in
-                // This is the callback for a successful viewable impression.
-                print("🚀 Firing API Call for VIEWABLE impression on item \(itemID)")
-                // AnalyticsService.shared.trackViewableImpression(for: itemID)
-
-                // After an impression fires, we must re-run the visibility check
-                // to ensure the UI stops tracking this cell and updates its color.
-                guard let self = self, let rect = self.lastKnownVisibleRect else { return }
-                self.updateCardVisibilities(within: rect)
-            },
-            onRenderImpressionFired: { itemID in
-                // This is the callback for a successful render impression.
-                print("🎨 Firing API Call for RENDER impression on item \(itemID)")
-                // AnalyticsService.shared.trackRenderImpression(for: itemID)
-            }
-        )
-    }()
+    /// The component now holds a reference to an object conforming to the `ImpressionTracking` protocol.
+    private let impressionTracker: ImpressionTracking
 
     /// The last known visible rectangle provided by the host. This is used to
     /// trigger a refresh after an impression is fired.
@@ -43,8 +24,10 @@ public final class HorizontalCarouselComponent: UIView {
         return collectionView
     }()
 
-    public init(place: NFOPlace, frame: CGRect = .zero) {
+    /// The designated initializer for the component.
+    public init(place: NFOPlace, impressionTracker: ImpressionTracking, frame: CGRect = .zero) {
         self.place = place
+        self.impressionTracker = impressionTracker
         super.init(frame: frame)
         setupComponentView()
     }
@@ -78,28 +61,36 @@ public final class HorizontalCarouselComponent: UIView {
             let itemID = "item_\(indexPath.item + 1)"
             cardCell.itemID = itemID
 
-            // --- VIEWABLE IMPRESSION ---
-            // First, check if the viewable impression has already fired for this item.
-            if impressionTracker.hasFiredViewImpression(for: itemID) {
-                cardCell.updateUI(for: .impressionFired, percentage: nil, index: indexPath.item)
-                continue // Skip to the next cell
+            let hasFiredView = impressionTracker.hasFiredViewImpression(for: itemID)
+            let hasFiredRender = impressionTracker.hasFiredRenderImpression(for: itemID)
+
+            if hasFiredView {
+                // If the impression has fired, get the final, correct percentage from the tracker.
+                let finalPercentage = impressionTracker.visibilityForFiredImpression(for: itemID) ?? 0.0
+                cardCell.updateUI(
+                    index: indexPath.item,
+                    visibilityPercentage: finalPercentage,
+                    hasFiredViewImpression: true,
+                    hasFiredRenderImpression: hasFiredRender
+                )
+                continue // Stop processing this cell
             }
 
-            // If not, calculate the current visibility.
+            // If the impression has NOT fired, proceed with the full logic.
             let visibility = VisibilityCalculator.percentageVisible(
                 of: cardCell,
                 within: visibleRectInWindow,
                 forPlace: self.place
             )
 
-            // Update the cell's UI based on the visibility percentage.
-            if visibility >= 0.5 {
-                cardCell.updateUI(for: .aboveThreshold, percentage: visibility, index: indexPath.item)
-            } else {
-                cardCell.updateUI(for: .belowThreshold, percentage: visibility, index: indexPath.item)
-            }
+            // Update the cell's UI with all the relevant information.
+            cardCell.updateUI(
+                index: indexPath.item,
+                visibilityPercentage: visibility,
+                hasFiredViewImpression: false,
+                hasFiredRenderImpression: hasFiredRender
+            )
 
-            // Finally, update the impression tracker with the latest data.
             impressionTracker.updateVisibility(id: itemID, percentage: visibility)
         }
     }
@@ -107,18 +98,16 @@ public final class HorizontalCarouselComponent: UIView {
 
 extension HorizontalCarouselComponent: UICollectionViewDataSource {
     public func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-         guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: CardCell.reuseIdentifier, for: indexPath) as? CardCell else {
-             return UICollectionViewCell()
-         }
+        guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: CardCell.reuseIdentifier, for: indexPath) as? CardCell else {
+            return UICollectionViewCell()
+        }
 
-         // --- RENDER IMPRESSION ---
-         // This is the correct place to fire the render impression, as it happens
-         // only once when the cell is prepared for display.
-         let itemID = "item_\(indexPath.item)"
-         impressionTracker.trackRender(id: itemID)
+        // --- RENDER IMPRESSION ---
+        let itemID = "item_\(indexPath.item + 1)"
+        impressionTracker.trackRender(id: itemID)
 
-         return cell
-     }
+        return cell
+    }
 
     public func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         return 20
