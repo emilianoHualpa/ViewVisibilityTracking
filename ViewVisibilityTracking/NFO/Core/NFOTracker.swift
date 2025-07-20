@@ -4,6 +4,7 @@ import Combine
 /// A thread-safe singleton responsible for tracking all "NonFriendlyObstructors" (NFOs).
 ///
 /// This pattern integrates seamlessly with Combine and avoids the complex actor-bridging issues.
+///
 @MainActor
 public final class NFOTracker: ObservableObject, NFOTracking {
 
@@ -20,8 +21,6 @@ public final class NFOTracker: ObservableObject, NFOTracking {
     /// Registers or updates a view's obstruction information.
     public func registerOrUpdate(id: UUID, frame: CGRect, place: NFOPlace, isVisible: Bool) {
         let info = NFOInfo(id: id, place: place, frame: frame, isVisible: isVisible)
-        // This assignment is already protected by @MainActor and will trigger
-        // the @Published property wrapper to send an update.
         obstructions[id] = info
     }
 
