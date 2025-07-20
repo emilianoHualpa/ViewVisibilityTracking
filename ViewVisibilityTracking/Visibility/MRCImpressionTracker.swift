@@ -11,19 +11,16 @@ public protocol ImpressionTracking {
 }
 
 /// A class that tracks two types of impressions for multiple items, conforming to the `ImpressionTracking` protocol.
-/// 1. **Render Impression:** Fires once as soon as an item is rendered.
-/// 2. **Viewable Impression:** Fires once after an item meets the MRC standard
-///    (e.g., 50% of pixels visible for at least 1 continuous second).
+/// 1. **Render Impression:** Fires once as soon as an item is about to be rendered.
+/// 2. **Viewable Impression:** Fires once after an item meets the MRC standard (>= 50% of pixels visible for at least 1 continuous second).
 @MainActor
 public final class MRCImpressionTracker: ImpressionTracking {
-
-    // --- Configuration & Callbacks ---
     private let visibilityThreshold: CGFloat
     private let timeThreshold: TimeInterval
     private let onViewImpressionFired: (String) -> Void
     private let onRenderImpressionFired: (String) -> Void
+    private let isObscuredCheck: @MainActor (UIView) async -> Bool
 
-    // --- State Management ---
     private var timerTasks = [String: Task<Void, Error>]()
     private var firedViewImpressionIDs = Set<String>()
     private var firedRenderImpressionIDs = Set<String>()
@@ -34,12 +31,14 @@ public final class MRCImpressionTracker: ImpressionTracking {
         visibilityThreshold: CGFloat = 0.5,
         timeThreshold: TimeInterval = 1.0,
         onViewImpressionFired: @escaping (String) -> Void,
-        onRenderImpressionFired: @escaping (String) -> Void
+        onRenderImpressionFired: @escaping (String) -> Void,
+        isObscuredCheck: @escaping @MainActor (UIView) async -> Bool = { $0.isViewControllerPresentedOnTop }
     ) {
         self.visibilityThreshold = visibilityThreshold
         self.timeThreshold = timeThreshold
         self.onViewImpressionFired = onViewImpressionFired
         self.onRenderImpressionFired = onRenderImpressionFired
+        self.isObscuredCheck = isObscuredCheck
     }
 
     public func trackRender(id: String) {
@@ -50,7 +49,6 @@ public final class MRCImpressionTracker: ImpressionTracking {
 
     public func updateVisibility(for view: UIView, id: String, percentage: CGFloat) {
         guard !firedViewImpressionIDs.contains(id) else { return }
-
         if percentage >= visibilityThreshold {
             visibilityWhileTiming[id] = percentage
             startTimerIfNeeded(for: view, id: id)
@@ -82,16 +80,13 @@ public final class MRCImpressionTracker: ImpressionTracking {
 
     private func startTimerIfNeeded(for view: UIView, id: String) {
         guard timerTasks[id] == nil else { return }
-
-        print("👁️ Viewable threshold met for item \(id). Starting 1-second timer...")
-
         timerTasks[id] = Task {
             let nanoseconds = UInt64(timeThreshold * 1_000_000_000)
             try await Task.sleep(nanoseconds: nanoseconds)
 
-            // Before firing the impression, perform a final check to see if a
-            // view controller has been presented on top of the view.
-            if view.isViewControllerPresentedOnTop {
+            // The check now uses the injected closure, which can be a real check
+            // in the app or a mock check in tests.
+            if await isObscuredCheck(view) {
                 print("❌ Impression for item \(id) aborted: A view controller was presented on top.")
                 cancelTimer(for: id)
                 return
@@ -108,7 +103,6 @@ public final class MRCImpressionTracker: ImpressionTracking {
 
     private func cancelTimer(for id: String) {
         if let task = timerTasks[id] {
-            print("❌ Visibility lost or impression fired for item \(id). Cancelling timer.")
             task.cancel()
             timerTasks[id] = nil
             visibilityWhileTiming.removeValue(forKey: id)
