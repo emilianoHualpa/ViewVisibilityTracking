@@ -32,7 +32,7 @@ public final class MRCImpressionTracker: ImpressionTracking {
 
     public init(
         visibilityThreshold: CGFloat = 0.5,
-        timeThreshold: TimeInterval = 5.0,
+        timeThreshold: TimeInterval = 1.0,
         onViewImpressionFired: @escaping (String) -> Void,
         onRenderImpressionFired: @escaping (String) -> Void
     ) {
