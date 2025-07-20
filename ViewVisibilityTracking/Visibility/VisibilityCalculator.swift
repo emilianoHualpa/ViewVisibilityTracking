@@ -1,5 +1,5 @@
 import UIKit
-import Foundation // Needed for pow()
+import Foundation
 
 /// A helper for calculating the visible percentage of a view.
 ///
@@ -49,9 +49,7 @@ public enum VisibilityCalculator {
         // --- OPTIMIZATION ---
         // If the view is less than 50% visible, don't bother with the expensive
         // obstruction calculation. We can assume its visibility is low enough.
-        // The threshold (0.5) can be adjusted based on your needs.
         if initialPercentage < 0.5 {
-            // We return the clamped initial percentage, rounded to 3 decimal places.
             let clampedPercentage = max(0.0, min(1.0, initialPercentage))
             return round(clampedPercentage, toDecimalPlaces: 3)
         }
@@ -80,10 +78,6 @@ public enum VisibilityCalculator {
     }
 
     /// Rounds a CGFloat value to a specific number of decimal places.
-    /// - Parameters:
-    ///   - value: The value to round.
-    ///   - places: The number of decimal places to round to.
-    /// - Returns: The rounded value.
     private static func round(_ value: CGFloat, toDecimalPlaces places: Int) -> CGFloat {
         let divisor = pow(10.0, CGFloat(places))
         return (value * divisor).rounded() / divisor

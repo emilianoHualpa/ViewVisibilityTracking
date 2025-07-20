@@ -11,34 +11,18 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
     // MARK: - Properties
     private let mainScrollView = UIScrollView()
     private let stackView = UIStackView()
-    private lazy var carouselComponent = HorizontalCarouselComponent(place: .favorites, impressionTracker: self.impressionTracker)
+    private lazy var carouselComponent = HorizontalCarouselComponent(place: .favorites)
     private let testBlock = TestFloatingBlock()
     private let floatingButton = UIButton(configuration: .filled())
     private var testBoxWidthConstraint: NSLayoutConstraint!
 
-    // The host now owns the visibility monitor.
-    private var visibilityMonitor: NFOVisibilityMonitor?
-
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-//        title = "Hosted Carousel"
         view.backgroundColor = .systemBackground
         setupViews()
         setupLayout()
-        setupVisibilityMonitor()
     }
-
-    lazy var impressionTracker: ImpressionTracking = MRCImpressionTracker(
-         onViewImpressionFired: { [weak self] itemID in
-             print("🚀 Firing API Call for VIEWABLE impression on item \(itemID)")
-             // After an impression fires, re-run the visibility check.
-             self?.updateComponentVisibility()
-         },
-         onRenderImpressionFired: { itemID in
-             print("🎨 Firing API Call for RENDER impression on item \(itemID)")
-         }
-     )
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
@@ -100,13 +84,6 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
             floatingButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
             floatingButton.centerXAnchor.constraint(equalTo: view.centerXAnchor)
         ])
-    }
-
-    private func setupVisibilityMonitor() {
-        // When an NFO changes, the HOST triggers the component update.
-        visibilityMonitor = NFOVisibilityMonitor { [weak self] in
-            self?.updateComponentVisibility()
-        }
     }
 
     // MARK: - Actions & Visibility Calculation

@@ -1,14 +1,22 @@
 import UIKit
 
+public protocol HorizontalCarouselComponenentDelegate: AnyObject {
+    /// Asks the delegate to provide the current visible rectangle of the scroll area.
+    /// The carousel calls this when it needs to update its visibility calculations,
+    /// for example, after an obstruction changes.
+    func carouselNeedsVisibleRect(_ carousel: HorizontalCarouselComponent) -> CGRect?
+}
+
 public final class HorizontalCarouselComponent: UIView {
     private let place: NFOPlace
 
     /// The component now holds a reference to an object conforming to the `ImpressionTracking` protocol.
-    private let impressionTracker: ImpressionTracking
-
     /// The last known visible rectangle provided by the host. This is used to
     /// trigger a refresh after an impression is fired.
     private var lastKnownVisibleRect: CGRect?
+    private var visibilityMonitor: NFOVisibilityMonitor?
+    private var presentationObserver: ViewPresentedOnTopStateObserver?
+    public weak var delegate: HorizontalCarouselComponenentDelegate?
 
     public private(set) lazy var collectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
@@ -24,16 +32,49 @@ public final class HorizontalCarouselComponent: UIView {
         return collectionView
     }()
 
+    lazy var impressionTracker: ImpressionTracking = MRCImpressionTracker(
+        onViewImpressionFired: { [weak self] itemID in
+            print("🚀 Firing API Call for VIEWABLE impression on item \(itemID)")
+            // After an impression fires, re-run the visibility check.
+            self?.updateCardVisibilities(within: self?.lastKnownVisibleRect ?? .zero)
+        },
+        onRenderImpressionFired: { itemID in
+            print("🎨 Firing API Call for RENDER impression on item \(itemID)")
+        }
+    )
+
     /// The designated initializer for the component.
-    public init(place: NFOPlace, impressionTracker: ImpressionTracking, frame: CGRect = .zero) {
+    public init(place: NFOPlace, frame: CGRect = .zero) {
         self.place = place
-        self.impressionTracker = impressionTracker
         super.init(frame: frame)
         setupComponentView()
+        setupVisibilityMonitor()
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    public override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil {
+            presentationObserver?.start()
+        } else {
+            presentationObserver?.stop()
+        }
+    }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        triggerVisibilityUpdate()
+    }
+
+    private func triggerVisibilityUpdate() {
+        // When an internal monitor fires, ask the delegate for the current visible rect.
+        if let visibleRect = self.delegate?.carouselNeedsVisibleRect(self) {
+            // Then trigger an update with the fresh layout information.
+            updateCardVisibilities(within: visibleRect)
+        }
     }
 
     private func setupComponentView() {
@@ -47,7 +88,13 @@ public final class HorizontalCarouselComponent: UIView {
         ])
     }
 
-    @MainActor
+    private func setupVisibilityMonitor() {
+        visibilityMonitor = NFOVisibilityMonitor { [weak self] in
+            print("👁️ Carousel's monitor detected an obstruction change.")
+            self?.updateCardVisibilities(within: self?.lastKnownVisibleRect ?? .zero)
+        }
+    }
+
     public func updateCardVisibilities(within visibleRectInWindow: CGRect) {
         // Store the latest visible rect from the host.
         self.lastKnownVisibleRect = visibleRectInWindow
@@ -91,7 +138,7 @@ public final class HorizontalCarouselComponent: UIView {
                 hasFiredRenderImpression: hasFiredRender
             )
 
-            impressionTracker.updateVisibility(id: itemID, percentage: visibility)
+            impressionTracker.updateVisibility(for: cardCell, id: itemID, percentage: visibility)
         }
     }
 }
