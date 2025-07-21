@@ -1,12 +1,5 @@
 import UIKit
 
-public protocol HorizontalCarouselComponenentDelegate: AnyObject {
-    /// Asks the delegate to provide the current visible rectangle of the scroll area.
-    /// The carousel calls this when it needs to update its visibility calculations,
-    /// for example, after an obstruction changes.
-    func carouselNeedsVisibleRect(_ carousel: HorizontalCarouselComponent) -> CGRect?
-}
-
 public final class HorizontalCarouselComponent: UIView {
     private let place: NFOPlace
 
@@ -16,7 +9,6 @@ public final class HorizontalCarouselComponent: UIView {
     private var lastKnownVisibleRect: CGRect?
     private var visibilityMonitor: NFOVisibilityMonitor?
     private var presentationObserver: ViewPresentedOnTopStateObserver?
-    public weak var delegate: HorizontalCarouselComponenentDelegate?
 
     public private(set) lazy var collectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
@@ -61,19 +53,6 @@ public final class HorizontalCarouselComponent: UIView {
             presentationObserver?.start()
         } else {
             presentationObserver?.stop()
-        }
-    }
-
-    public override func layoutSubviews() {
-        super.layoutSubviews()
-        triggerVisibilityUpdate()
-    }
-
-    private func triggerVisibilityUpdate() {
-        // When an internal monitor fires, ask the delegate for the current visible rect.
-        if let visibleRect = self.delegate?.carouselNeedsVisibleRect(self) {
-            // Then trigger an update with the fresh layout information.
-            updateCardVisibilities(within: visibleRect)
         }
     }
 

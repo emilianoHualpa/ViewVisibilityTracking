@@ -24,14 +24,6 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
         setupLayout()
     }
 
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        // Trigger an update after the initial layout pass.
-        Task {
-            updateComponentVisibility()
-        }
-    }
-
     // MARK: - Setup
     private func setupViews() {
         // The host is the delegate for BOTH scroll views.
@@ -96,15 +88,6 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
         }
     }
 
-    @MainActor
-    func updateComponentVisibility() {
-        guard view.window != nil else { return }
-
-        let visibleRect = mainScrollView.convert(mainScrollView.bounds, to: nil)
-
-        carouselComponent.updateCardVisibilities(within: visibleRect)
-    }
-
     private func createDummyView(text: String, color: UIColor) -> UIView {
         let dummyView = UIView()
         dummyView.backgroundColor = color
@@ -113,22 +96,11 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
     }
 }
 
-// Make your view controller conform to the delegate protocol
-extension FavoritesViewController: UIAdaptivePresentationControllerDelegate {
-
-    // This delegate method is GUARANTEED to be called after a sheet is dismissed.
-    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
-        print("✅ Presentation controller was dismissed. Telling carousel to update.")
-
-        // Now you can reliably command your component to update.
-        updateComponentVisibility()
-    }
-}
-
 // The host conforms to UIScrollViewDelegate to handle all scroll events.
 extension FavoritesViewController: UIScrollViewDelegate {
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        // This is called for both vertical and horizontal scrolls.
-        updateComponentVisibility()
+        guard view.window != nil else { return }
+        let visibleRect = mainScrollView.convert(mainScrollView.bounds, to: nil)
+        carouselComponent.updateCardVisibilities(within: visibleRect)
     }
 }
