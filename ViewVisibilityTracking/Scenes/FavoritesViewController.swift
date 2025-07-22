@@ -81,11 +81,10 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
     // MARK: - Actions & Visibility Calculation
 
     @objc private func floatingButtonTapped() {
-        if Bool.random() {
-            let profVC = ProfileViewController()
+
+        let profVC = ProfileViewController()
             profVC.modalPresentationStyle = .pageSheet
             self.present(profVC, animated: true)
-        }
     }
 
     private func createDummyView(text: String, color: UIColor) -> UIView {

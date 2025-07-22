@@ -72,6 +72,9 @@ public final class HorizontalCarouselComponent: UIView {
             print("👁️ Carousel's monitor detected an obstruction change.")
             self?.updateCardVisibilities(within: self?.lastKnownVisibleRect ?? .zero)
         }
+        presentationObserver = ViewPresentedOnTopStateObserver(observing: self) { [weak self] in
+            self?.updateCardVisibilities(within: self?.lastKnownVisibleRect ?? .zero)
+        }
     }
 
     public func updateCardVisibilities(within visibleRectInWindow: CGRect) {
