@@ -29,7 +29,7 @@ public final class MRCImpressionTracker: ImpressionTracking {
 
     public init(
         visibilityThreshold: CGFloat = 0.5,
-        timeThreshold: TimeInterval = 3.0,
+        timeThreshold: TimeInterval = 1.0,
         onViewImpressionFired: @escaping (String) -> Void,
         onRenderImpressionFired: @escaping (String) -> Void,
         isObscuredCheck: @escaping @MainActor (UIView) async -> Bool = { $0.isViewControllerPresentedOnTop }

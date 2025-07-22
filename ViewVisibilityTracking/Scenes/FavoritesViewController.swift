@@ -11,7 +11,7 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
     // MARK: - Properties
     private let mainScrollView = UIScrollView()
     private let stackView = UIStackView()
-    private lazy var carouselComponent = HorizontalCarouselComponent(place: .favorites)
+    private lazy var carouselComponent = HorizontalCarouselComponent(place: .favorites, parentCGRect:  self.mainScrollView.convert(self.mainScrollView.bounds, to: nil))
     private let testBlock = TestFloatingBlock()
     private let floatingButton = UIButton(configuration: .filled())
     private var testBoxWidthConstraint: NSLayoutConstraint!
@@ -54,7 +54,7 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
     }
 
     private func setupLayout() {
-        testBoxWidthConstraint = testBlock.widthAnchor.constraint(equalToConstant: 150)
+        testBoxWidthConstraint = testBlock.widthAnchor.constraint(equalToConstant: 250)
         NSLayoutConstraint.activate([
             mainScrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             mainScrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -90,7 +90,7 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
     private func createDummyView(text: String, color: UIColor) -> UIView {
         let dummyView = UIView()
         dummyView.backgroundColor = color
-        dummyView.heightAnchor.constraint(equalToConstant: 400).isActive = true
+        dummyView.heightAnchor.constraint(equalToConstant: 450).isActive = true
         return dummyView
     }
 }
@@ -98,8 +98,6 @@ final class FavoritesViewController: UIViewController, UICollectionViewDelegate 
 // The host conforms to UIScrollViewDelegate to handle all scroll events.
 extension FavoritesViewController: UIScrollViewDelegate {
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        guard view.window != nil else { return }
-        let visibleRect = mainScrollView.convert(mainScrollView.bounds, to: nil)
-        carouselComponent.updateCardVisibilities(within: visibleRect)
+        carouselComponent.updateCardVisibilities()
     }
 }

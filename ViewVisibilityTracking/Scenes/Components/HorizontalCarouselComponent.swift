@@ -6,7 +6,8 @@ public final class HorizontalCarouselComponent: UIView {
     /// The component now holds a reference to an object conforming to the `ImpressionTracking` protocol.
     /// The last known visible rectangle provided by the host. This is used to
     /// trigger a refresh after an impression is fired.
-    private var lastKnownVisibleRect: CGRect?
+//    private var lastKnownVisibleRect: CGRect?
+    private let parentCGRect: () -> CGRect
     private var visibilityMonitor: NFOVisibilityMonitor?
     private var presentationObserver: ViewPresentedOnTopStateObserver?
 
@@ -28,7 +29,7 @@ public final class HorizontalCarouselComponent: UIView {
         onViewImpressionFired: { [weak self] itemID in
             print("🚀 Firing API Call for VIEWABLE impression on item \(itemID)")
             // After an impression fires, re-run the visibility check.
-            self?.updateCardVisibilities(within: self?.lastKnownVisibleRect ?? .zero)
+            self?.updateCardVisibilities()
         },
         onRenderImpressionFired: { itemID in
             print("🎨 Firing API Call for RENDER impression on item \(itemID)")
@@ -36,8 +37,9 @@ public final class HorizontalCarouselComponent: UIView {
     )
 
     /// The designated initializer for the component.
-    public init(place: NFOPlace, frame: CGRect = .zero) {
+    public init(place: NFOPlace, frame: CGRect = .zero, parentCGRect: @escaping @autoclosure () -> CGRect) {
         self.place = place
+        self.parentCGRect = parentCGRect
         super.init(frame: frame)
         setupComponentView()
         setupVisibilityMonitor()
@@ -70,16 +72,15 @@ public final class HorizontalCarouselComponent: UIView {
     private func setupVisibilityMonitor() {
         visibilityMonitor = NFOVisibilityMonitor { [weak self] in
             print("👁️ Carousel's monitor detected an obstruction change.")
-            self?.updateCardVisibilities(within: self?.lastKnownVisibleRect ?? .zero)
+            self?.updateCardVisibilities()
         }
         presentationObserver = ViewPresentedOnTopStateObserver(observing: self) { [weak self] in
-            self?.updateCardVisibilities(within: self?.lastKnownVisibleRect ?? .zero)
+            self?.updateCardVisibilities()
         }
     }
 
-    public func updateCardVisibilities(within visibleRectInWindow: CGRect) {
+    public func updateCardVisibilities() {
         // Store the latest visible rect from the host.
-        self.lastKnownVisibleRect = visibleRectInWindow
 
         for cell in collectionView.visibleCells {
             guard let cardCell = cell as? CardCell,
@@ -108,7 +109,7 @@ public final class HorizontalCarouselComponent: UIView {
             // If the impression has NOT fired, proceed with the full logic.
             let visibility = VisibilityCalculator.percentageVisible(
                 of: cardCell,
-                within: visibleRectInWindow,
+                within: parentCGRect(),
                 forPlace: self.place
             )
 
